@@ -1,3 +1,5 @@
+import re
+
 from pypdf import PdfReader 
 
 def read_pdf(filename):

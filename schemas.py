@@ -7,28 +7,33 @@ T = TypeVar("T")
 
 
 class LoginBody(BaseModel):
-    username:str
-    password:str
+    username:str = Field(..., min_length=3, max_length=20 )
+    password:str = Field(..., min_length=8)
 
 class RegisterBody(BaseModel):
     username:str =  Field(..., min_length=3, max_length=20)
     email:EmailStr
     first_name:str =  Field(...,min_length=3, max_length=50)
     second_name:str =  Field(...,min_length=3, max_length=50)
-    
+    password:str
     confirm_password:str = Field(..., min_length=8)
+
     @field_validator("password")
     @classmethod
-    def verify_password_strength(self):
-        if len(self.password) > 8:
-            raise ValueError("password must be greather than 8 characters")
-        elif not any(char.isdigit() for char in self.password ):
+    def verify_password_strength(cls, value):
+        if len(value) < 8:
+            raise ValueError("password must be greater than 8 characters")
+        
+        if not any(char.isdigit() for char in value):
             raise ValueError("password must contain a number")
-        elif not any(char.isupper() for char in self.password):
+        
+        if not any(char.isupper() for char in value):
             raise ValueError("password must contain an upper case")
-        elif re.search("[* #$%&()]", self.password):
-            raise ValueError("password must contain atleast one of '[* #$%&()]'")
-
+        
+        if not re.search("[\*\#\$\%\&\(\)]", value) :
+            raise ValueError("password must contain atleast one of '*#$%&()'")
+        
+        return value
 
     @model_validator(mode="after")
     def verify_passwords_match(self):

@@ -22,7 +22,9 @@ def login(login_body:LoginBody):
 @app.post("/auth/register", status_code=status.HTTP_201_CREATED, response_model=Response[UserResponse])
 def register(register_body: RegisterBody):
     hashed_password = hash_password(register_body.password)
-    print(hashed_password)
+
+    
+ 
     return {
         "success":True,
         "message":"Successfully logged in our user",
