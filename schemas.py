@@ -29,8 +29,8 @@ class RegisterBody(BaseModel):
         
         if not any(char.isupper() for char in value):
             raise ValueError("password must contain an upper case")
-        
-        if not re.search("[\*\#\$\%\&\(\)]", value) :
+        r"[\*\#\$\%\&\(\)\!]"
+        if not re.search(r"[\*\#\$\%\&\(\)\!]", value) :
             raise ValueError("password must contain atleast one of '*#$%&()'")
         
         return value
@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
     username:str
     email:str
 
+class RegisterResponse(BaseModel):
+    id:int
 
     
 class Response(BaseModel, Generic[T]):
