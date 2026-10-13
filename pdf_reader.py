@@ -1,6 +1,7 @@
 from embed import embed_text
-
+import numpy as np
 from pypdf import PdfReader 
+from sklearn.metrics.pairwise import cosine_similarity
 
 def read_pdf(filename):
     reader = PdfReader(filename)
@@ -128,5 +129,43 @@ def split_sections(sections, chunk_size = 400, overlap = 50):
 
 chunks = split_sections(sections=sections)
 
-for chunk in chunks:
-    print(embed_text(chunk['text']))
+
+
+def embed_chunks(chunks, batch_size = 10):
+    embedded_chunks = []
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        texts = [f"{chunk['heading']}\n{chunk['text']}" for chunk in batch]
+        embeddings = embed_text(texts)
+        if len(batch) != len(embeddings):
+             raise ValueError("Embedding count does not match chunk count")
+        
+        for chunk, vectors in zip(batch, embeddings):
+            chunk['embedding'] = vectors
+            embedded_chunks.append(chunk)
+    return embedded_chunks
+
+def retreive_chunks(question, embedded_chunks, top_k =3):
+    embed_question = embed_text(question)[0]
+    
+    similarities = []
+    for chunk in embedded_chunks:
+        scores = cosine_similarity(X=np.array(embed_question).reshape(1,-1), Y=np.array(chunk["embedding"]).reshape(1,-1))[0]
+        similarities.append({
+            "chunk":chunk,
+            "score":scores.tolist()[0]
+        })
+
+    similarities.sort(reverse=True, key= lambda x:x["score"])
+ 
+    return similarities[:top_k]
+
+
+results = retreive_chunks("What evidence did the claimant present to support their case?",embed_chunks(chunks))
+
+for result in results:
+    print("Heading:", result["chunk"]["heading"])
+    print("Pages:", result["chunk"]["page"])
+    print("Similarity:", round(result["score"], 4))
+    print("Text:", result["chunk"]["text"][:300])
+    print("-" * 50)
