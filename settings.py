@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     db_password:str
     db_port:str
     db_username:str
+    algorithm:str
+    access_token_expire_minutes:int
     model_config = SettingsConfigDict(env_file=".env")
 
 

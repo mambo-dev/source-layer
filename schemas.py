@@ -55,6 +55,10 @@ class UserResponse(BaseModel):
     username:str
     email:str
 
+class LoginResponse(BaseModel):
+    access_token:str
+    token_type:str
+
 class RegisterResponse(BaseModel):
     id:int
 
@@ -63,3 +67,6 @@ class Response(BaseModel, Generic[T]):
     success: bool = False
     message: str
     data: T
+
+class TokenData(BaseModel):
+    username: str | None = None
