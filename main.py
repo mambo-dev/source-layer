@@ -17,6 +17,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 Base.metadata.create_all(bind=engine)
 
+
+
+
 def get_db():
     db = SessionLocal()
 
@@ -28,6 +31,8 @@ def get_db():
 
 
 app = FastAPI()
+
+
 
 
 def get_user(db, username):

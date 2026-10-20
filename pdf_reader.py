@@ -1,4 +1,4 @@
-from embed import embed_text
+from agent_api import embed_text, get_answer
 import numpy as np
 from pypdf import PdfReader 
 from sklearn.metrics.pairwise import cosine_similarity
@@ -161,11 +161,39 @@ def retreive_chunks(question, embedded_chunks, top_k =3):
     return similarities[:top_k]
 
 
-results = retreive_chunks("What evidence did the claimant present to support their case?",embed_chunks(chunks))
+question = "What evidence did the claimant present to support their case?"
 
-for result in results:
-    print("Heading:", result["chunk"]["heading"])
-    print("Pages:", result["chunk"]["page"])
-    print("Similarity:", round(result["score"], 4))
-    print("Text:", result["chunk"]["text"][:300])
-    print("-" * 50)
+results = retreive_chunks(question,embed_chunks(chunks))
+
+
+
+
+def build_context_from_chunks(retrieved_chunks, question):
+    result = ("You are a legal document assistant.\nAnswer the question using only the provided context.\nIf the answer is not in the context, say you cannot find it.\nCite the section headings and page numbers. \n\n CONTEXT:\n")
+    document_info = []
+
+    for chunks in retrieved_chunks:
+        chunk = chunks["chunk"]
+        page_numbers = []
+        [page_numbers.append(str(pn)) for pn in chunk['page']]
+        heading_page = f"[{chunk['heading']}, page{"'s" if len(page_numbers) >1 else ""} {",".join(page_numbers)}]"
+        document_info.append(heading_page)
+        document_info.append(chunk['text'])
+    
+    document_info.append('QUESTION:')
+    document_info.append(question)
+    result += "\n\n".join(document_info)
+    return result
+
+
+
+
+def generate_answer(question,retrieved_chunks):
+    prompt = build_context_from_chunks(retrieved_chunks, question)
+
+    response = get_answer(prompt)
+
+    return response
+
+
+print(generate_answer(question, results))
