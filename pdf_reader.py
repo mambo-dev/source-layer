@@ -4,6 +4,9 @@ import numpy as np
 from pypdf import PdfReader 
 from sklearn.metrics.pairwise import cosine_similarity
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from database.database import SessionLocal 
+from database.models import Document, DocumentChunks 
+from sqlalchemy import insert
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size = 1000,
@@ -29,20 +32,109 @@ def read_pdf(filename):
 pdf = read_pdf('fictional_legal_case_file.pdf')
 
 
-chunk_with_index = []
-for page in pdf:
-      chunks = splitter.split_text(page["text"])
-      for i, chunk in enumerate(chunks):
-            indexed_chunks  = {
-                  "page":page["page"],
-                  "chunk_index":i,
-                  "text":chunk,
-                  "filename": page["filename"]
-            }
-            chunk_with_index.append(indexed_chunks)
+def create_chunk_indexes(pdf) ->  list:
+    
+    chunk_with_index = []
+    for page in pdf:
+        chunks = splitter.split_text(page["text"])
+        for i, chunk in enumerate(chunks):
+                indexed_chunks  = {
+                    "page":page["page"],
+                    "chunk_index":i,
+                    "text":chunk,
+                    "filename": page["filename"]
+                }
+                chunk_with_index.append(indexed_chunks)
+
+    return chunk_with_index
+
+chunk_with_index = create_chunk_indexes(pdf)
 
 
-print(chunk_with_index)
+    
+
+def save_chunks_to_db(chunks):
+    if not chunks:
+         raise ValueError("no chunks provided")
+    db = SessionLocal()
+    print("we have a db session")
+    try:
+        document = Document(filename=chunks[0]["filename"])
+        db.add(document)
+        db.flush()
+        chunk_rows = [{
+                        "document_id":document.id,
+                        "page":chunk["page"],
+                        "chunk_index":chunk["chunk_index"],
+                        "text":chunk["text"]
+        } for chunk in chunks ]
+
+        db.execute(insert(DocumentChunks), chunk_rows)
+        db.commit()
+
+        return document.id
+    except Exception as err:
+        print(f"Failed to save documents or chunks -> {err}")
+        db.rollback()
+        raise
+    finally:
+         db.close()
+
+      
+      
+save_chunks_to_db(chunk_with_index)
+
+db = SessionLocal()
+
+try:
+    document = db.query(Document).order_by(Document.id.desc()).first()
+
+    if document:
+        print("Document ID:", document.id)
+        print("Filename:", document.filename)
+        print("Number of chunks:", len(document.chunks))
+
+        for chunk in document.chunks:
+            print(chunk.page, chunk.chunk_index, len(chunk.text))
+finally:
+    db.close()
+
+
+
+def embed_chunks(chunks, batch_size = 10):
+    embedded_chunks = []
+    for i in range(0, len(chunks), batch_size):
+        batch = chunks[i:i + batch_size]
+        texts = [f"{chunk['heading']}\n{chunk['text']}" for chunk in batch]
+        embeddings = embed_text(texts)
+        if len(batch) != len(embeddings):
+             raise ValueError("Embedding count does not match chunk count")
+        
+        for chunk, vectors in zip(batch, embeddings):
+            chunk['embedding'] = vectors
+            embedded_chunks.append(chunk)
+    return embedded_chunks
+
+def retreive_chunks(question, embedded_chunks, top_k =3):
+    embed_question = embed_text(question)[0]
+    
+    similarities = []
+    for chunk in embedded_chunks:
+        scores = cosine_similarity(X=np.array(embed_question).reshape(1,-1), Y=np.array(chunk["embedding"]).reshape(1,-1))[0]
+        similarities.append({
+            "chunk":chunk,
+            "score":scores.tolist()[0]
+        })
+
+    similarities.sort(reverse=True, key= lambda x:x["score"])
+ 
+    return similarities[:top_k]
+
+
+if __name__ == "__main__":
+    document_id = save_chunks_to_db(chunk_with_index)
+    print("Saved document:", document_id)
+
 # def chunk_by_text_page(pdf_pages):
 #     chunks = []
 
