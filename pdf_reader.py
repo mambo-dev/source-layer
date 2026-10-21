@@ -29,15 +29,20 @@ def read_pdf(filename):
 pdf = read_pdf('fictional_legal_case_file.pdf')
 
 
+chunk_with_index = []
 for page in pdf:
       chunks = splitter.split_text(page["text"])
       for i, chunk in enumerate(chunks):
-        print(f"\nPage {page['page']} - Chunk {i + 1}")
-        print(f"Characters: {len(chunk)}")
-        print(f"START: {chunk[:150]}")
-        print(f"END: {chunk[-150:]}")
-        print("-" * 50)
+            indexed_chunks  = {
+                  "page":page["page"],
+                  "chunk_index":i,
+                  "text":chunk,
+                  "filename": page["filename"]
+            }
+            chunk_with_index.append(indexed_chunks)
 
+
+print(chunk_with_index)
 # def chunk_by_text_page(pdf_pages):
 #     chunks = []
 
