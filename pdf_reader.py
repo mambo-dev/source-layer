@@ -6,7 +6,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from database.database import SessionLocal 
 from database.models import Document, DocumentChunks 
-from sqlalchemy import insert
+from sqlalchemy import insert, select, update
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size = 1000,
@@ -84,40 +84,66 @@ def save_chunks_to_db(chunks):
       
 save_chunks_to_db(chunk_with_index)
 
+
+
+
 db = SessionLocal()
 
-try:
-    document = db.query(Document).order_by(Document.id.desc()).first()
+def update_db_chunks(db,document_id):
+    batch_size = 10
+    try:
+        while True:
+            statement = (select(DocumentChunks).
+                         where(DocumentChunks.embedding.is_(None),DocumentChunks.document_id == document_id).
+                         order_by(DocumentChunks.id).
+                         limit(batch_size))
+            
+            batch =  db.scalars(statement).all()
 
-    if document:
-        print("Document ID:", document.id)
-        print("Filename:", document.filename)
-        print("Number of chunks:", len(document.chunks))
+            if not batch:
+                break
 
-        for chunk in document.chunks:
-            print(chunk.page, chunk.chunk_index, len(chunk.text))
-finally:
-    db.close()
+            texts = [chunk.text for chunk in batch]
+            embeddings = embed_text(text=texts)
+            bulk_updates = []
+
+            if len(embeddings) != len(batch):
+                raise ValueError("Embedding count mismatch")
+            
+            for chunk, embedding in zip(batch, embeddings):
+                if len(embedding) != 768:
+                    raise ValueError(
+                        f"Invalid embedding dimension for chunk {chunk.id}"
+                    )
+
+                updates = {
+                    'id':chunk.id,
+                    'embedding':embedding
+                }
+                
+                bulk_updates.append(updates)
 
 
+            
+            db.execute(update(DocumentChunks),bulk_updates)
 
-def embed_chunks(chunks, batch_size = 10):
-    embedded_chunks = []
-    for i in range(0, len(chunks), batch_size):
-        batch = chunks[i:i + batch_size]
-        texts = [f"{chunk['heading']}\n{chunk['text']}" for chunk in batch]
-        embeddings = embed_text(texts)
-        if len(batch) != len(embeddings):
-             raise ValueError("Embedding count does not match chunk count")
-        
-        for chunk, vectors in zip(batch, embeddings):
-            chunk['embedding'] = vectors
-            embedded_chunks.append(chunk)
-    return embedded_chunks
+            db.commit()
+            
 
-def retreive_chunks(question, embedded_chunks, top_k =3):
-    embed_question = embed_text(question)[0]
+    except Exception as err:
+        db.rollback()
+        print(f"Embedding failed: {err}")
+        raise
     
+          
+
+     
+     
+
+
+def retreive_chunks(question, top_k =3):
+    embed_question = embed_text(question)[0]
+    embedded_chunks = []
     similarities = []
     for chunk in embedded_chunks:
         scores = cosine_similarity(X=np.array(embed_question).reshape(1,-1), Y=np.array(chunk["embedding"]).reshape(1,-1))[0]
@@ -131,9 +157,9 @@ def retreive_chunks(question, embedded_chunks, top_k =3):
     return similarities[:top_k]
 
 
-if __name__ == "__main__":
-    document_id = save_chunks_to_db(chunk_with_index)
-    print("Saved document:", document_id)
+# if __name__ == "__main__":
+#     document_id = save_chunks_to_db(chunk_with_index)
+#     print("Saved document:", document_id)
 
 # def chunk_by_text_page(pdf_pages):
 #     chunks = []

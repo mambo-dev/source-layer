@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String,ForeignKey,DateTime,Text, UniqueConstraint
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime, timezone
@@ -47,6 +48,7 @@ class DocumentChunks(Base):
     page = Column(Integer, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
+    embedding = Column(Vector(768), nullable=True)
     document = relationship(
         "Document",
         back_populates="chunks"
