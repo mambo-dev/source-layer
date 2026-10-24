@@ -10,6 +10,9 @@ class LoginBody(BaseModel):
     username:str = Field(..., min_length=3, max_length=20 )
     password:str = Field(..., min_length=8)
 
+class QuestionBody(BaseModel):
+    question:str = Field(..., min_length=10)
+
 class RegisterBody(BaseModel):
     username:str =  Field(..., min_length=3, max_length=20)
     email:EmailStr
@@ -70,3 +73,10 @@ class Response(BaseModel, Generic[T]):
 
 class TokenData(BaseModel):
     username: str | None = None
+
+class DocumentUploadResponse(BaseModel):
+    document_id:int
+
+class QuestionResponse(BaseModel):
+    response:str
+    sources:list[str]

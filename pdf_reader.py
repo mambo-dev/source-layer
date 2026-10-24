@@ -53,11 +53,9 @@ chunk_with_index = create_chunk_indexes(pdf)
 
     
 
-def save_chunks_to_db(chunks):
+def save_chunks_to_db(chunks, db):
     if not chunks:
          raise ValueError("no chunks provided")
-    db = SessionLocal()
-    print("we have a db session")
     try:
         document = Document(filename=chunks[0]["filename"])
         db.add(document)
@@ -76,7 +74,7 @@ def save_chunks_to_db(chunks):
     except Exception as err:
         print(f"Failed to save documents or chunks -> {err}")
         db.rollback()
-        raise
+        raise 
     finally:
          db.close()
 
@@ -126,11 +124,11 @@ def update_db_chunks(db,document_id):
 
             db.commit()
             
-
+        return True
     except Exception as err:
         db.rollback()
         print(f"Embedding failed: {err}")
-        raise
+        raise 
     
           
 def retrieve_top_embeddings(question, db, document_id, top_k =3):
@@ -142,14 +140,39 @@ def retrieve_top_embeddings(question, db, document_id, top_k =3):
             )
 
     similarities = db.execute(query).all()
-
+    for sim in similarities:
+        print(f"Page: {sim.DocumentChunks.page}, Chunk Index: {sim.DocumentChunks.chunk_index}, Similarity: {sim.similarity}")
     return similarities
 
-question = "What evidence did the claimant present to support their case?"
 
-start = time.perf_counter()
-results = retrieve_top_embeddings(question,db,7, top_k=3)
-print("Question embedding + retrieval:", round(time.perf_counter() - start, 2), "seconds")
+def build_context(top_docs):
+    
+    prompt = (
+                "You are a document analysis assistant. Answer the user's question using only the supplied context."
+                "If the information is not available, say so."
+                "Cite the document name and page number."
+                "Do not invent facts.\n"
+                "CONTEXT: \n\n"
+                )
+    result = []
+    source_count = 1
+    for chunk, similarity in top_docs:
+        document_name = chunk.document.filename
+        page = chunk.page
+        result.append(f"Source {source_count} ,{document_name}, {page}")
+        text = chunk.text
+        result.append(text)
+        source_count +=1
+
+    return prompt + "\n\n".join(result)
+
+     
+
+# question = "What evidence did the claimant present to support their case?"
+
+# start = time.perf_counter()
+# results = retrieve_top_embeddings(question,db,7, top_k=3)
+# print("Question embedding + retrieval:", round(time.perf_counter() - start, 2), "seconds")
 
 
 # if __name__ == "__main__":

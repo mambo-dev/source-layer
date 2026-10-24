@@ -1,9 +1,10 @@
-from fastapi import FastAPI,Depends,HTTPException
+from fastapi import FastAPI,Depends,HTTPException, UploadFile, File
 from fastapi import status
 from requests import get
-from schemas import Response, UserResponse, RegisterBody, LoginResponse, RegisterResponse,TokenData
+from schemas import Response, UserResponse, RegisterBody, LoginResponse, RegisterResponse,TokenData,DocumentUploadResponse, QuestionResponse,QuestionBody
 from auth import hash_password, verify_password
-from database.models import User
+from database.models import User, Document, DocumentChunks
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from database.database import engine, SessionLocal, Base
@@ -13,6 +14,14 @@ from datetime import timedelta, datetime, timezone
 import jwt
 from jwt.exceptions import InvalidTokenError
 from settings import settings
+from pathlib import Path
+import shutil
+from pdf_reader import read_pdf, create_chunk_indexes, save_chunks_to_db, update_db_chunks, retrieve_top_embeddings, build_context
+from uuid import uuid4
+import time
+from metrics import update_metric_file
+from agent_api import get_answer
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 Base.metadata.create_all(bind=engine)
@@ -186,3 +195,102 @@ def get_profile(current_user: Annotated[User, Depends(get_current_user)]):
             "email":current_user.email
         }
     }
+
+
+
+
+@app.post("/documents/upload", status_code=status.HTTP_200_OK, response_model=Response[DocumentUploadResponse])
+def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = Depends(get_db), 
+                    file:UploadFile = File(...)):
+
+    request_timer = time.perf_counter()
+    if file.content_type != 'application/pdf':
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="only pdf files allowed")
+   
+    stored_file_name = f"{uuid4().hex}.pdf"
+    upload_dir = Path("uploads") / str(user.id)
+    upload_dir = upload_dir / stored_file_name
+    upload_dir.parent.mkdir(parents=True, exist_ok=True)
+    original_file_name = file.filename
+   
+
+    try:
+        with upload_dir.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    finally:
+        file.file.close()
+
+    try:
+        document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(original_file_name))),db)
+        if document_id:
+            stmt = (
+                update(Document).where(Document.id == document_id).values(status = "pending")
+            )
+            db.execute(stmt)
+            db.commit()
+        
+
+    except Exception as err:
+        print(f"Processing failed: {str(err)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="processing failed please try again")
+
+
+    try:
+
+        stmt = (
+                update(Document).where(Document.id == document_id).values(status = "processing")
+            )
+        db.execute(stmt)
+        db.commit()        
+
+        update_db_chunks(db, document_id)
+        stmt = (
+                update(Document).where(Document.id == document_id).values(status = "completed")
+            )
+        db.execute(stmt)
+        db.commit()
+        update_metric_file("Document Upload and Processing -MVP", round(time.perf_counter() - request_timer, 2))
+        return {
+            "success":True,
+            "message": "Document uploaded and processed successfully",
+            "data":{
+                "document_id":document_id
+            }
+        }
+
+    except Exception as err:
+            stmt = (
+                update(Document).where(Document.id == document_id).values(status = "failed")
+            )
+            db.execute(stmt)
+            db.commit()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="document processing failed")
+
+
+
+@app.post('/ai/ask/{document_id}', status_code=status.HTTP_200_OK, response_model = Response[QuestionResponse])
+def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends(get_current_user)], db:Session = Depends(get_db)):
+    request_timer = time.perf_counter()
+
+    try:
+        top_docs = retrieve_top_embeddings(body.question,db,document_id=document_id,top_k=4)
+
+        prompt = build_context(top_docs)
+        print(prompt)
+        answer = get_answer(prompt)
+
+
+        update_metric_file(metric_name="Answer retrieval - MVP",metric_perf=round(time.perf_counter()-request_timer, 2))
+
+        return {
+            "success":True,
+            "message": "Document uploaded and processed successfully",
+            "data":{
+                "response":answer,
+                "sources":[f"Source {i+1}: {doc.DocumentChunks.document.filename}, Page: {doc.DocumentChunks.page}" for i, doc in enumerate(top_docs)]
+            }
+        }
+   
+    except Exception as err:
+        print(err)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve user resposne")

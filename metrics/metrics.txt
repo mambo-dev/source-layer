@@ -1,0 +1,48 @@
+METRIC_NAME: Document Upload and Processing -MVP
+METRIC PERFOMANCE: 6.92 seconds 
+TIMESTAMP: 2026-10-24 10:24:34
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 3.1 seconds 
+TIMESTAMP: 2026-10-24 11:04:43
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 2.17 seconds 
+TIMESTAMP: 2026-10-24 11:06:21
+----------------------------------------
+METRIC_NAME: Document Upload and Processing -MVP
+METRIC PERFOMANCE: 6.76 seconds 
+TIMESTAMP: 2026-10-24 11:07:11
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 2.14 seconds 
+TIMESTAMP: 2026-10-24 11:09:58
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 2.21 seconds 
+TIMESTAMP: 2026-10-24 11:13:38
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 2.14 seconds 
+TIMESTAMP: 2026-10-24 11:15:37
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 51.02 seconds 
+TIMESTAMP: 2026-10-24 11:20:13
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 12.75 seconds 
+TIMESTAMP: 2026-10-24 11:23:00
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 8.31 seconds 
+TIMESTAMP: 2026-10-24 11:23:44
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 7.66 seconds 
+TIMESTAMP: 2026-10-24 11:24:01
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 11.22 seconds 
+TIMESTAMP: 2026-10-24 11:25:37
+----------------------------------------
