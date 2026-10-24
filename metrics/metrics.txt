@@ -46,3 +46,7 @@ METRIC_NAME: Answer retrieval - MVP
 METRIC PERFOMANCE: 11.22 seconds 
 TIMESTAMP: 2026-10-24 11:25:37
 ----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 75.2 seconds 
+TIMESTAMP: 2026-10-24 12:01:28
+----------------------------------------

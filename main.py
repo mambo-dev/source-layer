@@ -221,10 +221,10 @@ def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = 
         file.file.close()
 
     try:
-        document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(original_file_name))),db)
+        document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(upload_dir))),db)
         if document_id:
             stmt = (
-                update(Document).where(Document.id == document_id).values(status = "pending")
+                update(Document).where(Document.id == document_id).values(status = "pending",filename=original_file_name, storage_path=str(upload_dir))
             )
             db.execute(stmt)
             db.commit()
@@ -275,8 +275,8 @@ def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends
     try:
         top_docs = retrieve_top_embeddings(body.question,db,document_id=document_id,top_k=4)
 
-        prompt = build_context(top_docs)
-        print(prompt)
+        prompt = build_context(top_docs, body.question)
+        
         answer = get_answer(prompt)
 
 

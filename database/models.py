@@ -24,6 +24,7 @@ class Document(Base):
     filename = Column(String, nullable=False)
     uploaded_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     status = Column(String, default="pending")
+    storage_path = Column(String, nullable=True)
     chunks = relationship(
         "DocumentChunks",
         back_populates="document",
