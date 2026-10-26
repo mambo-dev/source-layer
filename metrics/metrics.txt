@@ -50,3 +50,55 @@ METRIC_NAME: Answer retrieval - MVP
 METRIC PERFOMANCE: 75.2 seconds 
 TIMESTAMP: 2026-10-24 12:01:28
 ----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 34.68 seconds 
+TIMESTAMP: 2026-10-24 12:03:31
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 60.08 seconds 
+TIMESTAMP: 2026-10-24 12:06:48
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 19.87 seconds 
+TIMESTAMP: 2026-10-24 12:08:08
+----------------------------------------
+METRIC_NAME: Document Upload and Processing -MVP
+METRIC PERFOMANCE: 6.56 seconds 
+TIMESTAMP: 2026-10-24 12:25:11
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 94.43 seconds 
+TIMESTAMP: 2026-10-24 12:26:56
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 46.13 seconds 
+TIMESTAMP: 2026-10-24 12:34:28
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 65.3 seconds 
+TIMESTAMP: 2026-10-24 12:41:58
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 66.62 seconds 
+TIMESTAMP: 2026-10-24 12:43:39
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 57.98 seconds 
+TIMESTAMP: 2026-10-24 12:46:44
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 41.57 seconds 
+TIMESTAMP: 2026-10-24 12:48:34
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 64.22 seconds 
+TIMESTAMP: 2026-10-24 12:51:15
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 55.94 seconds 
+TIMESTAMP: 2026-10-24 12:53:51
+----------------------------------------
+METRIC_NAME: Answer retrieval - MVP
+METRIC PERFOMANCE: 66.67 seconds 
+TIMESTAMP: 2026-10-24 13:00:11
+----------------------------------------
