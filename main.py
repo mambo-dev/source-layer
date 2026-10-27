@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends,HTTPException, UploadFile, File
+from fastapi import FastAPI,Depends,HTTPException, UploadFile, File,Request
 from fastapi import status
 from requests import get
 from schemas import Response, UserResponse, RegisterBody, LoginResponse, RegisterResponse,TokenData,DocumentUploadResponse, QuestionResponse,QuestionBody
@@ -21,8 +21,12 @@ from uuid import uuid4
 import time
 from metrics import update_metric_file
 from agent_api import get_answer
-
+from prometheus_fastapi_instrumentator import Instrumentator
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+from slowapi import Limiter
+from slowapi import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 Base.metadata.create_all(bind=engine)
 
@@ -37,12 +41,17 @@ def get_db():
     finally:
         db.close()
     
-
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler
+)
 
 
-
+Instrumentator().instrument(app).expose(app)
 
 def get_user(db, username):
     user = db.query(User).filter(User.username == username).first()
@@ -101,7 +110,8 @@ def get_current_user(token:Annotated[str, Depends(oauth2_scheme)], db:Session = 
 
 
 @app.post("/auth/login", status_code=status.HTTP_200_OK, response_model=Response[LoginResponse])
-def login(formData:Annotated[OAuth2PasswordRequestForm, Depends()], db:Session = Depends(get_db)):
+@limiter.limit('5/minute')
+def login(request:Request,formData:Annotated[OAuth2PasswordRequestForm, Depends()], db:Session = Depends(get_db)):
     
     user = authenticate_user(db, formData.username, formData.password)
 
@@ -287,7 +297,7 @@ def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends
             "message": "Document uploaded and processed successfully",
             "data":{
                 "response":answer,
-                "sources":[f"Source {i+1}: {doc.DocumentChunks.document.filename}, Page: {doc.DocumentChunks.page}" for i, doc in enumerate(top_chunks)]
+                "sources":[f"{chunk['chunk'].document.filename}, Page: {chunk['chunk'].page}" for _, chunk in top_chunks.items()]
             }
         }
    

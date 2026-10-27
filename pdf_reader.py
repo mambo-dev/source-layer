@@ -145,19 +145,19 @@ def retrieve_top_embeddings(question, db, document_id, top_k =3):
 
     return similarities
 
-def build_context(top_docs, question):
+def build_context(top_chunks, question):
     context_parts = []
-
-    for i, (chunk, similarity) in enumerate(top_docs, start=1):
+    count = 1
+    for _, chunk in top_chunks.items():
         context_parts.append(
-            f"[Source {i}]\n"
-            f"Document: {chunk.document.filename}\n"
-            f"Page: {chunk.page}\n"
-            f"Content:\n{chunk.text}"
+            f"[Source {count}]\n"
+            f"Document: {chunk["chunk"].document.filename}\n"
+            f"Page: {chunk["chunk"].page}\n"
+            f"Content:\n{chunk["chunk"].text}"
         )
+        count += 1
 
     context = "\n\n".join(context_parts)
-
     prompt = f"""
 You are a document question-answering assistant.
 
@@ -194,12 +194,12 @@ ANSWER:
 
 question ="What is the date shown on Exhibit A, the payment receipt?"
 
-top_docs = retrieve_top_embeddings(
-    question,
-    db,
-    document_id=7,
-    top_k=8
-)
+# top_docs = retrieve_top_embeddings(
+#     question,
+#     db,
+#     document_id=7,
+#     top_k=8
+# )
 
 # for chunk, similarity in top_docs:
 #     print(f"Chunk ID: {chunk.id}")
@@ -311,7 +311,7 @@ def retrieve_hybrid_chunks(question, document_id, db, top_k = 4):
 #     print("Top Chunks:")
 #     for chunk_id, data in results.items():
 #         print(
-#             chunk_id,
+#             chunk_id,s
 #             data["chunk"].text,
 #             round(data["rrf_score"], 5)
 #         )
