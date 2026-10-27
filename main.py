@@ -24,7 +24,7 @@ from agent_api import get_answer
 from prometheus_fastapi_instrumentator import Instrumentator
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 from slowapi import Limiter
-from slowapi import get_remote_address
+from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 
@@ -212,7 +212,7 @@ def get_profile(request:Request,current_user: Annotated[User, Depends(get_curren
 
 @app.post("/documents/upload", status_code=status.HTTP_200_OK, response_model=Response[DocumentUploadResponse])
 @limiter.limit('5/minute')
-def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = Depends(get_db), 
+def upload_document(request:Request,user:Annotated[User,Depends(get_current_user)],db:Session = Depends(get_db), 
                     file:UploadFile = File(...)):
 
     request_timer = time.perf_counter()
@@ -282,7 +282,7 @@ def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = 
 
 @app.post('/ai/ask/{document_id}', status_code=status.HTTP_200_OK, response_model = Response[QuestionResponse])
 @limiter.limit('5/minute')
-def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends(get_current_user)], db:Session = Depends(get_db)):
+def ask_question( request:Request,body:QuestionBody,document_id:int, user:Annotated[User,Depends(get_current_user)], db:Session = Depends(get_db)):
     request_timer = time.perf_counter()
 
     try:
