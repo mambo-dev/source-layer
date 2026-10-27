@@ -1,3 +1,4 @@
+from itertools import islice
 import time
 from agent_api import embed_text, get_answer
 import numpy as np
@@ -6,7 +7,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from database.database import SessionLocal 
 from database.models import Document, DocumentChunks 
-from sqlalchemy import insert, select, update,func
+from sqlalchemy import insert, select, update,func, cast, String
+from sqlalchemy.dialects.postgresql import TSQUERY
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size = 1000,
@@ -140,8 +142,7 @@ def retrieve_top_embeddings(question, db, document_id, top_k =3):
             )
 
     similarities = db.execute(query).all()
-    for sim in similarities:
-        print(f"Page: {sim.DocumentChunks.page}, Chunk Index: {sim.DocumentChunks.chunk_index}, Similarity: {sim.similarity}")
+
     return similarities
 
 def build_context(top_docs, question):
@@ -213,19 +214,26 @@ def retrieve_keyword_chunks(db, question,document_id, top_k=4):
         "english", DocumentChunks.text
     )
 
+
     search_query = func.plainto_tsquery(
         "english", 
         question
     )
 
+    or_query = cast(func.replace(
+        cast(search_query, String),
+            " & ",
+            " | "
+    ),TSQUERY)
+
     rank = func.ts_rank(
         search_vector,
-        search_query
+        or_query
     ) 
 
     stmnt = (
         select(DocumentChunks,rank.label("rank")).
-        where(DocumentChunks.document_id == document_id, search_vector.op("@@")(search_query))
+        where(DocumentChunks.document_id == document_id, search_vector.op("@@")(or_query))
         .order_by(rank.desc(), DocumentChunks.id)
         .limit(top_k)
     )
@@ -242,18 +250,19 @@ def retrieve_keyword_chunks(db, question,document_id, top_k=4):
 def reciprical_rank_fusion(
         vector_results,
         key_word_results,
-        k=60
+        k=60,
+        top_k = 4
 ):
     scores = {}
     chunks = {}
-    for rank, (chunk, similarity) in enumerate(vector_results, start=1):
+    for rank, (chunk, _) in enumerate(vector_results, start=1):
         if not chunk.id in scores:
             scores[chunk.id] = 0
         rank = 1 / (k + rank)
         scores[chunk.id] += rank
         chunks[chunk.id] = chunk
             
-    for rank, (chunk, similarity) in enumerate(key_word_results, start=1):
+    for rank, (chunk, _) in enumerate(key_word_results, start=1):
         if not chunk.id in scores:
             scores[chunk.id] = 0
         rank = 1 / (k + rank)
@@ -270,15 +279,50 @@ def reciprical_rank_fusion(
             "rrf_score": score
         }
 
-    return final_dict
+    return dict(islice(final_dict.items(), top_k))
 
 
 
+def retrieve_hybrid_chunks(question, document_id, db, top_k = 4):
+    vector_results = retrieve_top_embeddings(question ,db, document_id, top_k=10)
+    keyword_results = retrieve_keyword_chunks(db, question, document_id, top_k=10)
+    
+    return reciprical_rank_fusion(vector_results, keyword_results, top_k=top_k)
 
-# question = "What evidence did the claimant present to support their case?"
+
+
+# question = "What happened on 14 March 2026, and which individuals were involved in the communications?"
 
 # start = time.perf_counter()
-# results = retrieve_top_embeddings(question,db,7, top_k=3)
+# results = retrieve_hybrid_chunks(question,7,db)
+
+# test_questions = [
+#     "On what date was the payment receipt issued, and how much was paid?",
+#     "What happened on 14 March 2026, and which individuals were involved in the communications?",
+#     "What documentary evidence was presented to support the claimant's case?",
+#     "What did the claimant and respondent disagree about regarding the manager's promise?",
+#     "What did the court ultimately decide, and within how many days was the refund to be made?"
+# ]
+
+# for question in test_questions:
+#     start = time.perf_counter()
+#     results = retrieve_hybrid_chunks(question,7,db)
+#     print(f"\nQuestion: {question}")
+#     print("Top Chunks:")
+#     for chunk_id, data in results.items():
+#         print(
+#             chunk_id,
+#             data["chunk"].text,
+#             round(data["rrf_score"], 5)
+#         )
+#     print("Question embedding + retrieval:", round(time.perf_counter() - start, 2), "seconds")
+
+# for chunk_id, data in results.items():
+#     print(
+#         chunk_id,
+#         data["chunk"].text,
+#         round(data["rrf_score"], 5)
+#     )
 # print("Question embedding + retrieval:", round(time.perf_counter() - start, 2), "seconds")
 
 

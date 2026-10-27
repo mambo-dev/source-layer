@@ -16,7 +16,7 @@ from jwt.exceptions import InvalidTokenError
 from settings import settings
 from pathlib import Path
 import shutil
-from pdf_reader import read_pdf, create_chunk_indexes, save_chunks_to_db, update_db_chunks, retrieve_top_embeddings, build_context
+from pdf_reader import read_pdf, create_chunk_indexes, save_chunks_to_db, update_db_chunks, retrieve_hybrid_chunks, build_context
 from uuid import uuid4
 import time
 from metrics import update_metric_file
@@ -273,9 +273,9 @@ def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends
     request_timer = time.perf_counter()
 
     try:
-        top_docs = retrieve_top_embeddings(body.question,db,document_id=document_id,top_k=4)
+        top_chunks = retrieve_hybrid_chunks(body.question,document_id, db)
 
-        prompt = build_context(top_docs, body.question)
+        prompt = build_context(top_chunks, body.question)
         
         answer = get_answer(prompt)
 
@@ -287,7 +287,7 @@ def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends
             "message": "Document uploaded and processed successfully",
             "data":{
                 "response":answer,
-                "sources":[f"Source {i+1}: {doc.DocumentChunks.document.filename}, Page: {doc.DocumentChunks.page}" for i, doc in enumerate(top_docs)]
+                "sources":[f"Source {i+1}: {doc.DocumentChunks.document.filename}, Page: {doc.DocumentChunks.page}" for i, doc in enumerate(top_chunks)]
             }
         }
    
