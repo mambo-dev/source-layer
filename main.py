@@ -194,7 +194,8 @@ def register(body: RegisterBody, db:Session = Depends(get_db)):
 
 
 @app.get("/auth/me", status_code=status.HTTP_200_OK, response_model=Response[UserResponse])
-def get_profile(current_user: Annotated[User, Depends(get_current_user)]):
+@limiter.limit('10/minute')
+def get_profile(request:Request,current_user: Annotated[User, Depends(get_current_user)]):
     return {
         "success":True,
         "message":"Successfully retrieved user profile",
@@ -210,6 +211,7 @@ def get_profile(current_user: Annotated[User, Depends(get_current_user)]):
 
 
 @app.post("/documents/upload", status_code=status.HTTP_200_OK, response_model=Response[DocumentUploadResponse])
+@limiter.limit('5/minute')
 def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = Depends(get_db), 
                     file:UploadFile = File(...)):
 
@@ -279,6 +281,7 @@ def upload_document(user:Annotated[User,Depends(get_current_user)],db:Session = 
 
 
 @app.post('/ai/ask/{document_id}', status_code=status.HTTP_200_OK, response_model = Response[QuestionResponse])
+@limiter.limit('5/minute')
 def ask_question( body:QuestionBody,document_id:int, user:Annotated[User,Depends(get_current_user)], db:Session = Depends(get_db)):
     request_timer = time.perf_counter()
 
