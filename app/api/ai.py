@@ -8,8 +8,9 @@ from fastapi import Depends, HTTPException, Request,status, APIRouter
 from app.schemas import QuestionBody, QuestionResponse, Response
 from app.database.models import User
 from metrics import update_metric_file
-from app.pdf_reader import build_context, retrieve_hybrid_chunks
-from app.agent_api import get_answer
+from app.pipeline.context import build_context
+from app.pipeline.retrieval import retrieve_hybrid_chunks
+from app.llm.agent_api import get_answer
 
 router  = APIRouter()
 

@@ -12,8 +12,9 @@ from app.database.models import Document, User
 from sqlalchemy.orm import Session
 import shutil
 from metrics import update_metric_file
-from app.pdf_reader import read_pdf, create_chunk_indexes, save_chunks_to_db, update_db_chunks
+from app.pipeline.ingestion import read_pdf, create_chunk_indexes, save_chunks_to_db, update_db_chunks
 from app.core.limiter import limiter
+
 router = APIRouter()
 
 @router.post("/documents/upload", status_code=status.HTTP_200_OK, response_model=Response[DocumentUploadResponse])
