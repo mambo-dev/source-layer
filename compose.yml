@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    ports:
+      - 8000:8000
+    depends_on:
+      - database
+  database:
+    image: pgvector/pgvector:pg16-trixie
+    container_name: postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=ENV
+      - POSTGRES_PASSWORD=value
+      - POSTGRES_DB=value
+    volumes:
+      - pgdata:/var/lib/postgresql/data

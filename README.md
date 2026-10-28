@@ -224,8 +224,9 @@ This is appropriate for digitally generated PDFs with selectable text. Image-onl
 
 ## Future features and optimizations
 
-### Upcoming work
+### Next steps
 
+- [ ] **Dockerized deployment:** provide Docker images and Docker Compose services for the API, Redis, PostgreSQL with pgvector, Prometheus, and Grafana.
 - [ ] **Background workers and Redis queues:** move extraction, chunking, and embedding work from the request lifecycle into Celery workers with Redis as the broker and task-result backend.
 - [ ] **Asynchronous job management:** return a processing job identifier, then expose status, progress, retries, failures, and processing history.
 - [ ] **Bulk document ingestion:** ingest document collections rather than requiring one-file-at-a-time uploads.
@@ -233,31 +234,4 @@ This is appropriate for digitally generated PDFs with selectable text. Image-onl
 - [ ] **Amazon S3 ingestion:** import files from configured buckets or prefixes, retaining their source references and synchronization state.
 - [ ] **Source synchronization:** schedule or trigger re-indexing when a connected source adds, changes, or removes documents.
 - [ ] **Processing scalability:** tune worker concurrency, queue routing, embedding batch sizes, and retry policies for large collections.
-- [ ] **Dockerized deployment:** provide Docker images and Docker Compose services for the API, Celery worker, Redis, PostgreSQL with pgvector, Prometheus, and Grafana.
 - [ ] **Grafana observability:** have Prometheus scrape API and worker metrics, then build Grafana dashboards for request latency, queue depth, task success/failure rates, processing duration, retry counts, and resource use.
-
-### Later capabilities
-
-- [ ] **User-selected processing modes:** let the caller explicitly choose normal text extraction or OCR for each upload.
-- [ ] **OCR extraction:** support scanned PDFs and image-based documents through an interchangeable OCR module.
-- [ ] **Additional file types:** extend ingestion beyond PDFs to supported images and office documents.
-- [ ] **Document management:** list, inspect, retry, and delete uploaded documents, including their stored chunks.
-- [ ] **Organization workspaces:** separate knowledge bases, document collections, access rules, and terminology by organization.
-- [ ] **Richer source evidence:** return extraction warnings, page-level confidence, and more structured citations where available.
-- [ ] **Evaluation tooling:** track retrieval quality, groundedness, latency, and regressions across representative document sets.
-- [ ] **Controlled action integrations:** after authorization and audit controls are mature, use retrieved knowledge to draft emails, create tickets, or call approved external systems.
-
-## Roadmap
-
-1. **Complete and validate the current structural refactor.** Preserve endpoint behavior while verifying upload, extraction, chunking, embedding, retrieval, source attribution, and failure states.
-2. **Introduce Celery workers and Redis queues.** Move document extraction, chunking, and embedding work out of the upload request lifecycle.
-3. **Add asynchronous job management.** Return job identifiers and provide status, progress, retries, failures, and processing history.
-4. **Support bulk ingestion.** Design a common ingestion interface for collections of documents rather than one-file-at-a-time uploads.
-5. **Connect Google Drive and Amazon S3.** Start with controlled imports from approved folders, buckets, or prefixes while retaining source metadata.
-6. **Add source synchronization.** Detect or schedule updates, additions, and removals in connected sources, then re-index affected documents safely.
-7. **Optimize processing at scale.** Configure queue routing, worker concurrency, embedding batches, retry policies, and backpressure for large collections.
-8. **Dockerize the platform.** Provide Docker images and a Compose environment for the API, worker, Redis, PostgreSQL with pgvector, Prometheus, and Grafana.
-9. **Implement monitoring and dashboards.** Extend metrics to background processing, scrape them with Prometheus, and create Grafana dashboards and alerts for API, queue, worker, database, and ingestion health.
-10. **Add selectable extraction modes and OCR.** Keep normal text extraction and OCR as interchangeable ingestion components, with the user retaining the final mode choice.
-11. **Expand document intelligence capabilities.** Add more supported file types, document-management operations, richer source evidence, evaluations, and organization-level isolation.
-12. **Add controlled action integrations.** Only after retrieval quality, authorization, audit logs, and duplicate protection are mature, support scoped email, ticket, or external-system actions.
