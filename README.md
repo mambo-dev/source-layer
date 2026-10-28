@@ -18,8 +18,7 @@ The project began as a legal-document RAG application and is being organized tow
 
 ## Architecture
 
-![Document Intelligence API architecture](docs/images/diagram-export-10-28-2026-2_07_13-PM.png)
-
+[View on Eraser![](https://app.eraser.io/workspace/9eep9Xsz3xKJptmX0yvC/preview?diagram=_cXsWtaZYMs2ZzvC0B-f&type=embed)](https://app.eraser.io/workspace/9eep9Xsz3xKJptmX0yvC?diagram=_cXsWtaZYMs2ZzvC0B-f)
 The API has two connected flows:
 
 - **Document pipeline:** uploaded PDFs are extracted, chunked, embedded, and stored in PostgreSQL with pgvector.
