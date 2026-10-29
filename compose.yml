@@ -26,8 +26,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      # ollama:
-      #   condition: service_started
+      ollama:
+        condition: service_started
       migrate:
         condition: service_completed_successfully
     restart: unless-stopped
@@ -48,13 +48,30 @@ services:
       timeout: 5s
       retries: 10
 
-  # ollama:
-  #   image: ollama/ollama:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ollama_data:/root/.ollama
-  #   ports:
-  #     - "${OLLAMA_PORT:-11434}:11434"
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "
+      until ollama list; do
+        sleep 2;
+      done;
+      ollama pull nomic-embed-text:latest;
+      ollama pull llama3.2:3b;
+      "
+    restart: "no"
 
 volumes:
   pgdata:
