@@ -15,6 +15,9 @@ The current implementation supports text-based PDF processing, hybrid retrieval 
 - Hybrid retrieval using vector similarity, PostgreSQL full-text search, and reciprocal rank fusion
 - Evidence-grounded answer generation with page-level sources
 - Basic request rate limiting and Prometheus metrics exposure
+- User registration, login, and JWT-protected endpoints
+- SQLAlchemy models and Alembic database migrations
+- Docker Compose-based development environment
 
 ## Architecture
 
@@ -54,16 +57,128 @@ uploads/                  # Locally stored uploaded PDFs
 metrics/                  # Local timing metrics
 ```
 
-## Requirements
+## Prerequisites
 
-- Python 3.10+
-- PostgreSQL with the `pgvector` extension enabled
-- Ollama running locally
-- Ollama models:
-  - `nomic-embed-text` for embeddings
-  - `llama3.2:3b` for answer generation
+For the Docker Compose setup, install:
 
-Install and start the required Ollama models:
+- Docker Desktop on Windows or Docker Engine with the Compose plugin on Linux
+- Git
+- Sufficient disk space for container images, database data, and Ollama models
+- NOTE: you don't need to install python or postgressql locally
+
+## Quick Start with Docker Compose
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/mambo-dev/source-layer.git
+cd source-layer
+```
+
+### 2. Configure Environment Variables
+
+Create a `.env` file in the directory containing the Compose file. Use the variable names expected by `app/settings.py` and your Compose configuration.
+
+Example:
+
+```dotenv
+ENV=development
+
+JWT_SECRET=replace-with-a-long-random-secret
+ALGORITHM= your-algo
+ACCESS_TOKEN_EXPIRE_MINUTES= minutes
+
+DB_NAME=source-layer
+DB_USERNAME=<DB_USERNAME>
+DB_PASSWORD=replace-with-a-secure-password
+DB_HOST=<DB_HOST>
+DB_PORT=<PORT_NO>
+
+API_PORT=8000
+OLLAMA_PORT=11434
+```
+
+**Important:**
+
+- These are example development values. Use a unique, secure JWT secret and database password.
+- Do not commit your real `.env` file to Git.
+
+### 3. Start the Application
+
+From the directory containing the Compose file:
+
+```bash
+docker compose up --build -d
+```
+
+Check service status:
+
+```bash
+docker compose ps
+```
+
+View API logs:
+
+```bash
+docker compose logs -f api
+```
+
+View migration logs:
+
+```bash
+docker compose logs migrate
+```
+
+### 4. Access the API
+
+Once the API is running, open:
+
+- **Swagger UI:** http://localhost:8000/docs
+- **OpenAPI schema:** http://localhost:8000/openapi.json
+- **Metrics:** http://localhost:8000/metrics
+
+If you change `API_PORT`, use the configured host port.
+
+### 5. Verify the Ollama Models
+
+Check which models the Ollama service has available:
+
+```bash
+docker compose exec ollama ollama list
+```
+
+The expected models are:
+
+```text
+nomic-embed-text:latest
+llama3.2:3b
+```
+
+### 6. Stop the Application
+
+Stop the services without deleting persistent data:
+
+```bash
+docker compose down
+```
+
+Start them again:
+
+```bash
+docker compose up -d
+```
+
+Avoid using `docker compose down -v` unless you deliberately want to delete the Compose-managed volumes, including persistent database and model data.
+
+## Local Development Without Docker
+
+A local Python setup is also possible if Python, PostgreSQL with pgvector, and Ollama are installed separately.
+
+Create and activate a virtual environment, then install the project's dependencies using the dependency-management files committed to the repository.
+
+Configure `.env` with the local database and Ollama addresses.
+
+Download the models and start Ollama:
 
 ```bash
 ollama pull nomic-embed-text
@@ -71,64 +186,19 @@ ollama pull llama3.2:3b
 ollama serve
 ```
 
-## Configuration
-
-Create a `.env` file in the repository root:
-
-```env
-JWT_SECRET=replace-with-a-secure-secret
-ENV=development
-DB_NAME=document_intelligence
-DB_HOST=localhost
-DB_PORT=5432
-DB_USERNAME=postgres
-DB_PASSWORD=replace-with-your-password
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-```
-
-The variable names must match the settings defined in `app/settings.py`.
-
-## Database setup
-
-Create a PostgreSQL database and enable pgvector:
-
-```sql
-CREATE DATABASE document_intelligence;
-```
-
-Then, in that database:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-Run the migration:
+Apply database migrations:
 
 ```bash
 alembic upgrade head
 ```
 
-## Run the API
-
-Install the Python dependencies used by the application, then start FastAPI:
+Start the API:
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API and interactive documentation are available at:
-
-```text
-http://127.0.0.1:8000
-http://127.0.0.1:8000/docs
-```
-
-Prometheus metrics are exposed at:
-
-```text
-http://127.0.0.1:8000/metrics
-```
+The API should then be available at http://127.0.0.1:8000/docs.
 
 ## API overview
 
