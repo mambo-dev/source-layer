@@ -1,8 +1,8 @@
 # Document Intelligence API
 
-A self-hosted FastAPI service for ingesting documents, retrieving relevant evidence, and answering questions grounded in uploaded content.
+The project began as a legal-document RAG application and is evolving into a reusable, containerised foundation for document-driven applications. The long-term vision is to make it adaptable to different organisations and use cases, with configurable LLM providers and agents that can connect document-derived knowledge to tools and workflows selected by the user.
 
-The project began as a legal-document RAG application and is transitioning toward a reusable document-intelligence API. The current implementation supports text-based PDF processing,
+The current implementation supports text-based PDF processing, hybrid retrieval using PostgreSQL and pgvector, and answer generation through a locally running Ollama model. OCR for scanned documents, alternative LLM providers, containerised deployment, and tool-using agents are planned capabilities, not yet implemented.
 
 ## Current capabilities
 
