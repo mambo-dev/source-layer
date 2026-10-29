@@ -1,9 +1,10 @@
 import requests
 import time
+from app.settings import settings
 
 def embed_text(text):
 
-    url  = 'http://localhost:11434/api/embed'
+    url  = f'{settings.ollama_base_url}/api/embed'
     payload ={
         "model":"nomic-embed-text",
         "input":text
@@ -25,7 +26,7 @@ def embed_text(text):
 
 
 def get_answer(prompt):
-    url = "http://localhost:11434/api/generate"
+    url = f"{settings.ollama_base_url}/api/generate"
     payload = {
         "model":"llama3.2:3b",
         "prompt":prompt,

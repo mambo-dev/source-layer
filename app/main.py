@@ -1,13 +1,9 @@
 from fastapi import FastAPI
-from app.database.database import engine, SessionLocal, Base
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from app.api import auth, ai, documents
-
-Base.metadata.create_all(bind=engine)
-
     
 
 app = FastAPI()

@@ -1,17 +1,61 @@
 services:
+  migrate:
+    build: .
+    command: alembic upgrade head
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      database:
+        condition: service_healthy
   api:
     build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     ports:
-      - 8000:8000
+      - "${API_PORT:-8000}:8000"
+    environment:
+      DB_HOST: database
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      OLLAMA_BASE_URL: http://ollama:11434
     depends_on:
-      - database
+      database:
+        condition: service_healthy
+      # ollama:
+      #   condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   database:
     image: pgvector/pgvector:pg16-trixie
-    container_name: postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      - POSTGRES_USER=ENV
-      - POSTGRES_PASSWORD=value
-      - POSTGRES_DB=value
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "${OLLAMA_PORT:-11434}:11434"
+
+volumes:
+  pgdata:
+  ollama_data:
