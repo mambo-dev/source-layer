@@ -2,7 +2,7 @@
 
 A self-hosted FastAPI service for ingesting documents, retrieving relevant evidence, and answering questions grounded in uploaded content.
 
-The project began as a legal-document RAG application and is being organized toward a reusable document-intelligence API. The current implementation supports text-based PDF processing. OCR and organization-level knowledge isolation are future capabilities, not current features.
+The project began as a legal-document RAG application and is transitioning toward a reusable document-intelligence API. The current implementation supports text-based PDF processing,
 
 ## Current capabilities
 
@@ -205,22 +205,6 @@ Example response shape:
   }
 }
 ```
-
-## Processing model
-
-The current pipeline uses normal text extraction:
-
-```text
-PDF
-  -> pypdf text extraction
-  -> page-aware chunks
-  -> embeddings
-  -> PostgreSQL / pgvector index
-  -> hybrid retrieval
-  -> grounded LLM response
-```
-
-This is appropriate for digitally generated PDFs with selectable text. Image-only PDFs and poor scans may produce little or no usable text.
 
 ## Future features and optimizations
 
