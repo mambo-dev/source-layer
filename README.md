@@ -289,3 +289,5 @@ Example response shape:
 - [ ] **Source synchronization:** schedule or trigger re-indexing when a connected source adds, changes, or removes documents.
 - [ ] **Processing scalability:** tune worker concurrency, queue routing, embedding batch sizes, and retry policies for large collections.
 - [ ] **Grafana observability:** have Prometheus scrape API and worker metrics, then build Grafana dashboards for request latency, queue depth, task success/failure rates, processing duration, retry counts, and resource use.
+
+---
