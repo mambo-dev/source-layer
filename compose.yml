@@ -30,6 +30,8 @@ services:
         condition: service_started
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   database:
@@ -55,6 +57,19 @@ services:
       - ollama_data:/root/.ollama
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+
+  worker:
+    build: .
+    command: celery -A app.core.workers.celery worker --loglevel=info
+    depends_on:
+      - redis
 
   ollama-init:
     image: ollama/ollama:latest
@@ -76,3 +91,4 @@ services:
 volumes:
   pgdata:
   ollama_data:
+  redis_data:

@@ -4,6 +4,12 @@ from pypdf import PdfReader
 from app.database.models import Document, DocumentChunks 
 from app.database.database import SessionLocal 
 from app.llm.agent_api import embed_text
+from app.core.workers import celery
+from app.core.logger import logger
+from metrics import update_metric_file
+import time
+
+
 splitter = RecursiveCharacterTextSplitter(
     chunk_size = 1000,
     chunk_overlap=150
@@ -78,7 +84,6 @@ def save_chunks_to_db(chunks, db):
 
 
 
-db = SessionLocal()
 
 def update_db_chunks(db,document_id):
     batch_size = 10
@@ -125,3 +130,50 @@ def update_db_chunks(db,document_id):
         db.rollback()
         print(f"Embedding failed: {err}")
         raise 
+
+
+
+@celery.task(bind=True, retries=3)
+def start_document_processing(self,upload_dir, db, original_file_name):
+    request_timer = time.perf_counter()
+    try:
+        logger.info(f"Processing {original_file_name}")
+        document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(upload_dir))),db)
+
+        if document_id:
+            stmt = (
+                update(Document).where(Document.id == document_id).values(status = "pending",filename=original_file_name, storage_path=str(upload_dir))
+            )
+            db.execute(stmt)
+            db.commit()
+
+    except Exception as exc:
+         logger.error(f"Error: {exc}, retrying...")
+         raise self.retry(exc, countdown= 2 ** self.request.retries)
+
+    
+    try:
+        logger.info(f"Document chunked and saved embeddings {original_file_name}")
+        stmt = (
+                update(Document).where(Document.id == document_id).values(status = "processing")
+            )
+        db.execute(stmt)
+        db.commit()        
+
+        update_db_chunks(db, document_id)
+        stmt = (
+                update(Document).where(Document.id == document_id).values(status = "completed")
+            )
+        db.execute(stmt)
+        db.commit()
+        update_metric_file("Document Upload and Processing - with celery background worker", round(time.perf_counter() - request_timer, 2))
+        return document_id
+    
+    except Exception as err:
+        stmt = (
+            update(Document).where(Document.id == document_id).values(status = "failed")
+        )
+        db.execute(stmt)
+        db.commit()
+        logger.error(f"Error: {exc}, retrying...")
+        raise self.retry(exc, countdown= 2 ** self.request.retries)
