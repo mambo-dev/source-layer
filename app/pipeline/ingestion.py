@@ -166,6 +166,7 @@ def start_document_processing(self, upload_dir, original_file_name):
             )
         db.execute(stmt)
         db.commit()
+
         update_metric_file("Document Upload and Processing - with celery background worker", round(time.perf_counter() - request_timer, 2))
         return document_id
     
