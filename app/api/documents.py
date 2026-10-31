@@ -14,6 +14,7 @@ from app.core.logger import logger
 from app.core.limiter import limiter
 from app.pipeline.ingestion import start_document_processing
 from app.core.workers import celery
+from app.database.models import Document
 
 router = APIRouter()
 
@@ -42,10 +43,16 @@ def upload_document(request:Request,user:Annotated[User,Depends(get_current_user
 
     try:
 
-        task = start_document_processing.delay(str(upload_dir),original_file_name)
+        document = Document(filename= original_file_name, storage_path = str(upload_dir),status="queued")
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+
+        task = start_document_processing.delay(str(upload_dir),original_file_name, document_id= document.id)
         return {
             "success":True,
-            "message": "Document queued for processing",
+            "message": "Document saved and queued for processing",
             "data":{
                 "task_id":task.id
             }

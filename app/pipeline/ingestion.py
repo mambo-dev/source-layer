@@ -1,5 +1,8 @@
+from ast import stmt
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sqlalchemy import insert, select, update
+from sqlalchemy import  select, update
+from sqlalchemy.dialects.postgresql import insert
 from pypdf import PdfReader 
 from app.database.models import Document, DocumentChunks 
 from app.database.database import SessionLocal 
@@ -55,26 +58,31 @@ def create_chunk_indexes(pdf) ->  list:
 
     
 
-def save_chunks_to_db(chunks, db):
+def save_chunks_to_db(chunks, db, document_id):
     if not chunks:
          raise ValueError("no chunks provided")
     try:
-        document = Document(filename=chunks[0]["filename"])
-        db.add(document)
-        db.flush()
+ 
         chunk_rows = [{
-                        "document_id":document.id,
+                        "document_id":document_id,
                         "page":chunk["page"],
                         "chunk_index":chunk["chunk_index"],
                         "text":chunk["text"]
         } for chunk in chunks ]
+        
+        stmt = insert(DocumentChunks).values(chunk_rows)
 
-        db.execute(insert(DocumentChunks), chunk_rows)
+        stmt = stmt.on_conflict_do_nothing(
+            constraint="uq_document_page_chunk"
+        )
+
+
+        db.execute(stmt)
         db.commit()
 
-        return document.id
+        return document_id
     except Exception as err:
-        print(f"Failed to save documents or chunks -> {err}")
+        logger.error(f"Failed to save documents or chunks -> {err}")
         db.rollback()
         raise 
 
@@ -127,57 +135,74 @@ def update_db_chunks(db,document_id):
         return True
     except Exception as err:
         db.rollback()
-        print(f"Embedding failed: {err}")
+        logger.error(f"Embedding failed: {err}")
         raise 
 
 
 
-@celery.task(bind=True, retries=3)
-def start_document_processing(self, upload_dir, original_file_name):
-    db = SessionLocal()
-    request_timer = time.perf_counter()
-    try:
-        logger.info(f"Processing {original_file_name}")
-        document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(upload_dir))),db)
+@celery.task(bind=True, max_retries=3)
+def start_document_processing(self, upload_dir, original_file_name, document_id):
 
-        if document_id:
+    request_timer = time.perf_counter()
+
+    with SessionLocal() as db:
+
+        try:
+            logger.info(f"Processing {original_file_name}")
+            document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(upload_dir))),db, document_id)
+
+            if document_id:
+                stmt = (
+                    update(Document).where(Document.id == document_id).values(status = "pending",filename=original_file_name, storage_path=str(upload_dir))
+                )
+                db.execute(stmt)
+                db.commit()
+
+
+        except Exception as exc:
+            logger.error(f"Error: {exc}, retrying...")
+
+            if self.request.retries >= self.max_retries:
+                logger.error(f"Error:{document_id} failed saving chunks to database")
+
+                stmt = (
+                        update(Document).where(Document.id == document_id).values(status = "failed")
+                    )
+                db.execute(stmt)
+                db.commit()               
+
+            logger.error(f"Error: {exc}, retrying...")
+
+            raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
+
+        
+        try:
+            logger.info(f"Document chunks saved; generating embeddings {original_file_name}")
             stmt = (
-                update(Document).where(Document.id == document_id).values(status = "pending",filename=original_file_name, storage_path=str(upload_dir))
-            )
+                    update(Document).where(Document.id == document_id).values(status = "processing")
+                )
+            db.execute(stmt)
+            db.commit()        
+
+            update_db_chunks(db, document_id)
+            stmt = (
+                    update(Document).where(Document.id == document_id).values(status = "completed")
+                )
             db.execute(stmt)
             db.commit()
 
-    except Exception as exc:
-         logger.error(f"Error: {exc}, retrying...")
-         raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
+            update_metric_file("Document Upload and Processing - with celery background worker", round(time.perf_counter() - request_timer, 2))
+            return document_id
+        
+        except Exception as exc:
 
-    
-    try:
-        logger.info(f"Document chunked and saved embeddings {original_file_name} updating embeddings to chunks")
-        stmt = (
-                update(Document).where(Document.id == document_id).values(status = "processing")
-            )
-        db.execute(stmt)
-        db.commit()        
+            if self.request.retries >= self.max_retries:
+                stmt = (
+                        update(Document).where(Document.id == document_id).values(status = "failed")
+                    )
+                db.execute(stmt)
+                db.commit()
 
-        update_db_chunks(db, document_id)
-        stmt = (
-                update(Document).where(Document.id == document_id).values(status = "completed")
-            )
-        db.execute(stmt)
-        db.commit()
+            logger.error(f"Error: {exc}, retrying...")
+            raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
 
-        update_metric_file("Document Upload and Processing - with celery background worker", round(time.perf_counter() - request_timer, 2))
-        return document_id
-    
-    except Exception as exc:
-        stmt = (
-            update(Document).where(Document.id == document_id).values(status = "failed")
-        )
-        db.execute(stmt)
-        db.commit()
-        logger.error(f"Error: {exc}, retrying...")
-        raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
-    
-    finally:
-         db.close()
