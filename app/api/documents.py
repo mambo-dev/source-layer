@@ -42,12 +42,12 @@ def upload_document(request:Request,user:Annotated[User,Depends(get_current_user
 
     try:
 
-        task_id = start_document_processing.delay(upload_dir,db,original_file_name)
+        task = start_document_processing.delay(str(upload_dir),original_file_name)
         return {
             "success":True,
             "message": "Document queued for processing",
             "data":{
-                "task_id":task_id
+                "task_id":task.id
             }
         }
 

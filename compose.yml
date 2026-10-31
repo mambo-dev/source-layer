@@ -23,6 +23,8 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       database:
         condition: service_healthy
@@ -67,7 +69,16 @@ services:
 
   worker:
     build: .
-    command: celery -A app.core.workers.celery worker --loglevel=info
+    command: python -m celery -A app.core.workers.celery worker --loglevel=info
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       - redis
 
@@ -92,3 +103,4 @@ volumes:
   pgdata:
   ollama_data:
   redis_data:
+  uploads_data:

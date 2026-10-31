@@ -77,8 +77,7 @@ def save_chunks_to_db(chunks, db):
         print(f"Failed to save documents or chunks -> {err}")
         db.rollback()
         raise 
-    finally:
-         db.close()
+
 
       
 
@@ -134,7 +133,8 @@ def update_db_chunks(db,document_id):
 
 
 @celery.task(bind=True, retries=3)
-def start_document_processing(self,upload_dir, db, original_file_name):
+def start_document_processing(self, upload_dir, original_file_name):
+    db = SessionLocal()
     request_timer = time.perf_counter()
     try:
         logger.info(f"Processing {original_file_name}")
@@ -149,11 +149,11 @@ def start_document_processing(self,upload_dir, db, original_file_name):
 
     except Exception as exc:
          logger.error(f"Error: {exc}, retrying...")
-         raise self.retry(exc, countdown= 2 ** self.request.retries)
+         raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
 
     
     try:
-        logger.info(f"Document chunked and saved embeddings {original_file_name}")
+        logger.info(f"Document chunked and saved embeddings {original_file_name} updating embeddings to chunks")
         stmt = (
                 update(Document).where(Document.id == document_id).values(status = "processing")
             )
@@ -169,11 +169,14 @@ def start_document_processing(self,upload_dir, db, original_file_name):
         update_metric_file("Document Upload and Processing - with celery background worker", round(time.perf_counter() - request_timer, 2))
         return document_id
     
-    except Exception as err:
+    except Exception as exc:
         stmt = (
             update(Document).where(Document.id == document_id).values(status = "failed")
         )
         db.execute(stmt)
         db.commit()
         logger.error(f"Error: {exc}, retrying...")
-        raise self.retry(exc, countdown= 2 ** self.request.retries)
+        raise self.retry(exc=exc, countdown= 2 ** self.request.retries)
+    
+    finally:
+         db.close()

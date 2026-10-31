@@ -75,7 +75,7 @@ class TokenData(BaseModel):
     username: str | None = None
 
 class DocumentUploadResponse(BaseModel):
-    task_id:int
+    task_id:str
 
 class QuestionResponse(BaseModel):
     response:str

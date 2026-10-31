@@ -4,7 +4,8 @@ from app.settings import settings
 celery = Celery(
     "anandapath",
     broker = settings.celery_broker_url,
-    backend = settings.celery_result_backend
+    backend = settings.celery_result_backend,
+    include=["app.pipeline.ingestion"]
 )
 
 celery.conf.update(
