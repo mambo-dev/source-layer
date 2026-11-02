@@ -73,6 +73,7 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       OLLAMA_BASE_URL: http://ollama:11434
+    restart: unless-stopped
     volumes:
       - uploads_data:/app/uploads
     depends_on:
