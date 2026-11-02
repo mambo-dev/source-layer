@@ -38,7 +38,7 @@ def get_answer(prompt):
                 "num_ctx": 8192,
                 "num_predict": 768
             }
-        },
+        }
 
     try:
         start = time.perf_counter()
