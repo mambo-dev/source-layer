@@ -65,11 +65,11 @@ def upload_document(request:Request,user:Annotated[User,Depends(get_current_user
 
 @router.get("/status/{task_id}")
 @limiter.limit('5/minute')
-async def get_status(request:Request,task_id: str):
+async def get_status(request:Request,task_id: str, user:Annotated[User,Depends(get_current_user)]):
     result = celery.AsyncResult(task_id)
     print(result)
     return {
         "task_id": task_id,
         "status": result.status,
-        "document_id": result.result if result.ready() else None,
+        "document_id": result.result if result.successful() else None,
     }

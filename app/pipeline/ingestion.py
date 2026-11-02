@@ -274,7 +274,7 @@ def start_document_processing(self, upload_dir, original_file_name, document_id)
                         f"Ingestion failed: document_id={document_id}"
                     )
 
-                    raise
+                    
 
             logger.error(f"Error: {exc}")
             raise Exception("Something went wrong")
