@@ -29,8 +29,8 @@ def get_answer(prompt):
     url = f"{settings.ollama_base_url}/api/generate"
     payload = {
             "model": "llama3.2:3b",
-            "system": prompt.system_prompt,
-            "prompt": prompt.user_prompt,
+            "system": prompt["system"],
+            "prompt": prompt["user"],
             "stream": False,
             "options": {
                 "temperature": 0.2,
