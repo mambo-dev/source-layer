@@ -257,35 +257,31 @@ def start_document_processing(self, upload_dir, original_file_name, document_id)
             current_document = db.scalars(stmt).first()
 
             if current_document.status != "completed":
-                stmt = (
-                    update(Document).where(Document.id == document_id).values(status = "failed")
-                )
-                db.execute(stmt)
-                db.commit()
+                try:
+                    with SessionLocal() as db:
+                        db.execute(
+                            update(Document)
+                            .where(Document.id == document_id)
+                            .values(status="failed")
+                        )
+                        db.commit()
+                except Exception:
+                    logger.exception(
+                        f"Could not mark document {document_id} as failed"
+                    )
+
+                    logger.exception(
+                        f"Ingestion failed: document_id={document_id}"
+                    )
+
+                    raise
 
             logger.error(f"Error: {exc}")
             raise Exception("Something went wrong")
-        try:
-            with SessionLocal() as db:
-                db.execute(
-                    update(Document)
-                    .where(Document.id == document_id)
-                    .values(status="failed")
-                )
-                db.commit()
-        except Exception:
-            logger.exception(
-                f"Could not mark document {document_id} as failed"
-            )
 
-        logger.exception(
-            f"Ingestion failed: document_id={document_id}"
-        )
-
-        raise
 
     try:
-        duration = time.perf_counter() - start_time
+        duration = time.perf_counter() - request_timer
 
         update_metric_file(
             "Document Upload and Processing - with celery background worker",
