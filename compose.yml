@@ -78,6 +78,8 @@ services:
       - uploads_data:/app/uploads
     depends_on:
       - redis
+      - database
+      - ollama
 
   ollama-init:
     image: ollama/ollama:latest
