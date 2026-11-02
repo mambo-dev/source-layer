@@ -1,9 +1,17 @@
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from sqlalchemy import insert, select, update
+from sqlalchemy import  select, update, func
+from sqlalchemy.dialects.postgresql import insert
 from pypdf import PdfReader 
 from app.database.models import Document, DocumentChunks 
 from app.database.database import SessionLocal 
 from app.llm.agent_api import embed_text
+from app.core.workers import celery
+from app.core.logger import logger
+from metrics import update_metric_file
+import time
+
+
 splitter = RecursiveCharacterTextSplitter(
     chunk_size = 1000,
     chunk_overlap=150
@@ -12,17 +20,26 @@ splitter = RecursiveCharacterTextSplitter(
 def read_pdf(filename):
     reader = PdfReader(filename)
 
-    extracted_pages_and_information = []
-    for page in reader.pages:
+    pages = []
 
-            extracted_pages_and_information.append({
-                  "page":page.page_number + 1,
-                  "text":page.extract_text(),
-                  "filename": filename
-            })
+    for page_number, page in enumerate(reader.pages, start=1):
+        text = page.extract_text() or ""
 
-    return extracted_pages_and_information
+        if not text.strip():
+            continue
 
+        pages.append({
+            "page": page_number,
+            "text": text,
+            "filename": filename
+        })
+
+    if not pages:
+        raise ValueError(
+            "PDF contains no extractable text"
+        )
+
+    return pages
 
 
 
@@ -49,36 +66,39 @@ def create_chunk_indexes(pdf) ->  list:
 
     
 
-def save_chunks_to_db(chunks, db):
+def save_chunks_to_db(chunks, db, document_id):
     if not chunks:
          raise ValueError("no chunks provided")
     try:
-        document = Document(filename=chunks[0]["filename"])
-        db.add(document)
-        db.flush()
+ 
         chunk_rows = [{
-                        "document_id":document.id,
+                        "document_id":document_id,
                         "page":chunk["page"],
                         "chunk_index":chunk["chunk_index"],
                         "text":chunk["text"]
         } for chunk in chunks ]
 
-        db.execute(insert(DocumentChunks), chunk_rows)
+        stmt = insert(DocumentChunks).values(chunk_rows)
+
+        stmt = stmt.on_conflict_do_nothing(
+            constraint="uq_document_page_chunk"
+        )
+
+
+        db.execute(stmt)
         db.commit()
 
-        return document.id
+        return document_id
     except Exception as err:
-        print(f"Failed to save documents or chunks -> {err}")
+        logger.error(f"Failed to save documents or chunks -> {err}")
         db.rollback()
         raise 
-    finally:
-         db.close()
+
 
       
 
 
 
-db = SessionLocal()
 
 def update_db_chunks(db,document_id):
     batch_size = 10
@@ -123,5 +143,154 @@ def update_db_chunks(db,document_id):
         return True
     except Exception as err:
         db.rollback()
-        print(f"Embedding failed: {err}")
+        logger.error(f"Embedding failed: {err}")
         raise 
+
+
+
+
+def verify_document_embeddings(db, document_id):
+    total_chunks = db.scalar(
+        select(func.count())
+        .select_from(DocumentChunks)
+        .where(DocumentChunks.document_id == document_id)
+    )
+
+    missing_embeddings = db.scalar(
+        select(func.count())
+        .select_from(DocumentChunks)
+        .where(
+            DocumentChunks.document_id == document_id,
+            DocumentChunks.embedding.is_(None)
+        )
+    )
+
+    if total_chunks == 0:
+        raise ValueError(
+            f"Document {document_id} has no chunks"
+        )
+
+    if missing_embeddings > 0:
+        raise ValueError(
+            f"Document {document_id} has "
+            f"{missing_embeddings} chunks without embeddings"
+        )
+
+    return True
+
+
+class EmbeddingServiceError(Exception):
+    """An embedding operation failed and may be retried."""
+
+@celery.task(bind=True, max_retries=3)
+def start_document_processing(self, upload_dir, original_file_name, document_id):
+
+    request_timer = time.perf_counter()
+
+    with SessionLocal() as db:
+        
+        try:
+            logger.info(f"Processing {original_file_name}")
+            document_id = save_chunks_to_db(create_chunk_indexes(read_pdf(filename=str(upload_dir))),db, document_id)
+
+            if document_id:
+                stmt = (
+                    update(Document).where(Document.id == document_id).values(status = "processing",filename=original_file_name, storage_path=str(upload_dir))
+                )
+                db.execute(stmt)
+                db.commit()
+
+
+            logger.info(f"Document chunks saved; generating embeddings {original_file_name}")
+            stmt = (
+                    update(Document).where(Document.id == document_id).values(status = "processing")
+                )
+            db.execute(stmt)
+            db.commit()        
+
+   
+
+            try:
+                update_db_chunks(db, document_id)
+            except Exception as exc:
+                raise EmbeddingServiceError(
+                    f"Embedding operation failed for document {document_id}"
+                ) from exc
+
+            
+            verify_document_embeddings(db, document_id=document_id)
+
+
+            
+            stmt = (
+                    update(Document).where(Document.id == document_id).values(status = "completed")
+                )
+            db.execute(stmt)
+            db.commit()
+
+            logger.info(
+                f"Completed ingestion: document_id={document_id}"
+            )
+
+        
+        except Exception as exc:
+            retryable = isinstance(exc, EmbeddingServiceError)
+            retries_remaining = (
+                self.request.retries < self.max_retries
+            )
+
+            if retryable and retries_remaining:
+                logger.warning(
+                    f"Retrying document {document_id}: {exc}"
+                )
+
+                raise self.retry(
+                    exc=exc,
+                    countdown=2 ** self.request.retries
+                )                
+
+                        
+            stmt = (
+                    select(Document).where(Document.id == document_id)
+                )
+
+            current_document = db.scalars(stmt).first()
+
+            if current_document.status != "completed":
+                try:
+                    with SessionLocal() as db:
+                        db.execute(
+                            update(Document)
+                            .where(Document.id == document_id)
+                            .values(status="failed")
+                        )
+                        db.commit()
+                except Exception:
+                    logger.exception(
+                        f"Could not mark document {document_id} as failed"
+                    )
+
+                    logger.exception(
+                        f"Ingestion failed: document_id={document_id}"
+                    )
+
+                    
+
+            logger.error(f"Error: {exc}")
+            raise Exception("Something went wrong")
+
+
+    try:
+        duration = time.perf_counter() - request_timer
+
+        update_metric_file(
+            "Document Upload and Processing - with celery background worker",
+            round(duration, 2)
+        )
+    except Exception:
+        logger.exception(
+            "Failed to record ingestion metric"
+        )
+
+    return document_id
+

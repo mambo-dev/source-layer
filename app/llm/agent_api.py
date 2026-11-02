@@ -28,13 +28,17 @@ def embed_text(text):
 def get_answer(prompt):
     url = f"{settings.ollama_base_url}/api/generate"
     payload = {
-        "model":"llama3.2:3b",
-        "prompt":prompt,
-        "stream":False,
-        "options": {
-            "num_predict": 200
+            "model": "llama3.2:3b",
+            "system": prompt["system"],
+            "prompt": prompt["user"],
+            "stream": False,
+            "options": {
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "num_ctx": 8192,
+                "num_predict": 768
+            }
         }
-    }
 
     try:
         start = time.perf_counter()

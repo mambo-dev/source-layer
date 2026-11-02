@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     ollama_base_url:str
     api_port:int
     ollama_port:int
-    model_config = SettingsConfigDict(env_file=".env")
+    redis_base_url:str
+    redis_port:int
+    celery_broker_url:str
+    celery_result_backend:str
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
 settings = Settings()

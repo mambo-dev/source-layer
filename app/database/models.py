@@ -20,6 +20,7 @@ class User(Base):
 
 class Document(Base):
     __tablename__ = 'documents'
+    
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     filename = Column(String, nullable=False)
     uploaded_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
