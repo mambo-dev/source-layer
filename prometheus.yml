@@ -6,3 +6,11 @@ scrape_configs:
     metrics_path: "/metrics"
     static_configs:
       - targets: ["api:8000"]
+
+  - job_name: "celery-metrics"
+    static_configs:
+      - targets: ["celery_exporter:9808"]
+
+  - job_name: "worker-application-metrics"
+    static_configs:
+      - targets: ["worker_metrics_exporter:9101"]

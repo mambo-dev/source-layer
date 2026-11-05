@@ -19,7 +19,7 @@ from app.database.models import Document
 router = APIRouter()
 
 @router.post("/documents/upload", status_code=status.HTTP_200_OK, response_model=Response[DocumentUploadResponse])
-@limiter.limit('5/minute')
+@limiter.limit('20/minute')
 def upload_document(request:Request,user:Annotated[User,Depends(get_current_user)],db:Session = Depends(get_db), 
                     file:UploadFile = File(...)):
 
