@@ -24,5 +24,5 @@ celery.conf.update(
     result_expires=3600,
     broker_connection_retry_on_startup=True,
     worker_send_task_events=True,
-    task_send_test_event = True
+    task_send_sent_event = True
 )
