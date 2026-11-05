@@ -65,7 +65,7 @@ services:
 
   worker:
     build: .
-    command: python -m celery -A app.core.workers.celery worker --loglevel=info
+    command: sh scripts/start-worker.sh
     environment:
       DB_HOST: database
       DB_PORT: 5432
@@ -73,9 +73,12 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       OLLAMA_BASE_URL: http://ollama:11434
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
+
     restart: unless-stopped
     volumes:
       - uploads_data:/app/uploads
+      - worker_metrics:/tmp/prometheus-multiproc
     depends_on:
       - redis
       - database
@@ -108,9 +111,43 @@ services:
       - "127.0.0.1:9090:9090"
     restart: unless-stopped
 
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+  celery_exporter:
+    image: danihodovic/celery-exporter:latest
+    ports:
+      - "127.0.0.1:9808:9808"
+    environment:
+      - CE_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  worker_metrics_exporter:
+    build: .
+    command: python -m app.core.metrics_server
+    environment:
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus-multiproc
+    volumes:
+      - worker_metrics:/tmp/prometheus-multiproc:ro
+    ports:
+      - "127.0.0.1:9101:9101"
+    depends_on:
+      - worker
+    restart: unless-stopped
+
 volumes:
   pgdata:
   ollama_data:
   redis_data:
   uploads_data:
   prometheus_data:
+  grafana_data:
+  worker_metrics:

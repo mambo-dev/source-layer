@@ -8,8 +8,13 @@ from app.database.database import SessionLocal
 from app.llm.agent_api import embed_text
 from app.core.workers import celery
 from app.core.logger import logger
-from metrics import update_metric_file
+from app.core.metrics import update_metric_file
 import time
+from app.core.metrics import (
+    EMBEDDING_BATCH_DURATION,
+    EMBEDDED_CHUNKS,
+    EMBEDDING_BATCH_FAILURES,
+)
 
 
 splitter = RecursiveCharacterTextSplitter(
@@ -115,7 +120,9 @@ def update_db_chunks(db,document_id):
                 break
 
             texts = [chunk.text for chunk in batch]
-            embeddings = embed_text(text=texts)
+            with EMBEDDING_BATCH_DURATION.time():
+
+                embeddings = embed_text(text=texts)
             bulk_updates = []
 
             if len(embeddings) != len(batch):
@@ -139,9 +146,10 @@ def update_db_chunks(db,document_id):
             db.execute(update(DocumentChunks),bulk_updates)
 
             db.commit()
-            
+            EMBEDDED_CHUNKS.inc(len(batch))
         return True
     except Exception as err:
+        EMBEDDING_BATCH_FAILURES.inc()
         db.rollback()
         logger.error(f"Embedding failed: {err}")
         raise 

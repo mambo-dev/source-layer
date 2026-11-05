@@ -7,7 +7,7 @@ from app.database.database import get_db
 from fastapi import Depends, HTTPException, Request,status, APIRouter
 from app.schemas import QuestionBody, QuestionResponse, Response
 from app.database.models import User
-from metrics import update_metric_file
+from app.core.metrics import update_metric_file
 from app.pipeline.context import build_context
 from app.pipeline.retrieval import retrieve_hybrid_chunks
 from app.llm.agent_api import get_answer
